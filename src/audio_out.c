@@ -8,7 +8,7 @@
 
 #define mp3_frame_max_samples   1152
 #define dac_dma_buf_size        (mp3_frame_max_samples*sizeof(int16_t)*2)
-#define mp3_buf_size            512
+#define mp3_buf_size            2048
 #define mp3_frame_max_size      4096
 #define mp3_frame_headers_size  (32+4+2+2)
 
@@ -130,7 +130,6 @@ void ESP_Speaker_DAC_Interrupts_Init(void)
     nvic.NVIC_IRQChannelSubPriority = 1;
     NVIC_Init(&nvic);
 }
-
 
 void ESP_Speaker_Start (int sampleRate, int _mp3mode)
 {
