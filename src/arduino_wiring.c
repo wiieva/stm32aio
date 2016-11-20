@@ -37,10 +37,6 @@ const ArduinoPinDef pins[] =
     {GPIOA,GPIO_Pin_6, 0,    ADC_Channel_6, 0          }, // A4
     {GPIOA,GPIO_Pin_7, 0,    ADC_Channel_7, 0          }, // A5
     {GPIOC,GPIO_Pin_5, 0,    ADC_Channel_15,0          }, // Batary meausure
-/*    {GPIOB,GPIO_Pin_0, 0,    ADC_Channel_8, 0          }, // YU
-    {GPIOB,GPIO_Pin_1, 0,    ADC_Channel_9, 0          }, // XL
-    {GPIOC,GPIO_Pin_3, 0,    ADC_Channel_13,0          }, // YD
-    {GPIOC,GPIO_Pin_4, 0,    ADC_Channel_14,0          }, // XR,4-DIR*/
     // additional pins
     {GPIOB,GPIO_Pin_10,TIM2, TIM_Channel_3, TIM_OC3Init}, // Backlight
     {GPIOA,GPIO_Pin_0, 0,    0,             0          }, // KB2 (PWR)
@@ -48,12 +44,15 @@ const ArduinoPinDef pins[] =
 };
 
 #define numPins (sizeof (pins)/sizeof(pins[0]))
-int8_t pinModes[numPins];
-int8_t adcIdx[numPins];
-int16_t adc_buffer[numPins];
 
-#define PWM_HZ 1000
-static int ESP_Wiring_Init_Pin (const ArduinoPinDef *_pin) {
+static int8_t adcIdx[numPins];
+static int16_t adc_buffer[numPins];
+static uint16_t pwmFreq[numPins];
+static uint16_t pwmLimit[numPins];
+static int8_t pinModes[numPins];
+
+#define PWM_DEF_HZ 1000
+static int ESP_Wiring_Init_Pin (uint16_t pin, const ArduinoPinDef *_pin) {
 
     GPIO_InitTypeDef gpio;
     gpio.GPIO_Speed = GPIO_Speed_2MHz;
@@ -63,7 +62,7 @@ static int ESP_Wiring_Init_Pin (const ArduinoPinDef *_pin) {
 
     if (_pin->tim) {
         TIM_TimeBaseInitTypeDef tim;
-        tim.TIM_Period = (CPUFREQ_KHZ / PWM_HZ) - 1;
+        tim.TIM_Period = (CPUFREQ_KHZ / PWM_DEF_HZ) - 1;
         tim.TIM_Prescaler = 1000;
         tim.TIM_ClockDivision = 0;
         tim.TIM_CounterMode = TIM_CounterMode_Up;
@@ -80,7 +79,8 @@ static int ESP_Wiring_Init_Pin (const ArduinoPinDef *_pin) {
         TIM_SelectOCxM(_pin->tim, _pin->channel,TIM_OCMode_PWM1);
         TIM_CCxCmd(_pin->tim, _pin->channel, TIM_CCx_Enable);
     }
-
+    pwmFreq[pin] = PWM_DEF_HZ;
+    pwmLimit[pin] = 255;
     return 1;
 }
 
@@ -101,7 +101,7 @@ static int ESP_Wiring_Set_Pin_Mode (uint16_t pin, const ArduinoPinDef *_pin, int
         break;
     case AIO_PIN_DIGITAL_IN:
     case AIO_PIN_ANALOG_IN:
-        if (_pin->tim || !_pin->channel)
+        if (!_pin->tim && _pin->channel)
             gpio.GPIO_Mode = GPIO_Mode_AIN;
         else
             gpio.GPIO_Mode = GPIO_Mode_IN_FLOATING;
@@ -124,7 +124,6 @@ static inline int ESP_Wiring_Check_Pin_Mode (uint16_t pin, int mode) {
         return 0;
     return 1;
 }
-
 
 void ESP_Wiring_PinMode (uint16_t pin,uint16_t mode) {
     const ArduinoPinDef *_pin = pins + pin;
@@ -161,11 +160,23 @@ uint16_t ESP_Wiring_AnalogRead (uint16_t pin) {
 
 void ESP_Wiring_AnalogWrite (uint16_t pin,uint16_t val) {
     const ArduinoPinDef *_pin = pins + pin;
-    if (pin >= numPins)
+    if (pin >= numPins || !_pin->tim)
        return;
 
-    __IO uint16_t *ccr = &(_pin->tim->CCR1) + _pin->channel/4;
-    *ccr = (CPUFREQ_KHZ / PWM_HZ)*val/255;
+    __IO uint16_t *ccr = &(_pin->tim->CCR1) + _pin->channel/2;
+    *ccr = (CPUFREQ_KHZ / pwmFreq[pin])*val/pwmLimit[pin];
+}
+
+void ESP_Wiring_SetPwmParms (uint16_t pin,uint16_t freq,uint16_t limit) {
+    const ArduinoPinDef *_pin = pins + pin;
+    if (pin >= numPins || !_pin->tim)
+       return;
+    if (!freq)
+        freq = PWM_DEF_HZ;
+    if (!limit)
+        limit = 255;
+
+    _pin->tim->ARR = (CPUFREQ_KHZ / PWM_DEF_HZ) - 1;
 }
 
 void ESP_Wiring_ADC_Start () {
@@ -212,9 +223,12 @@ void ESP_Wiring_Init () {
 
     uint16_t i;
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2|RCC_APB1Periph_TIM3|RCC_APB1Periph_TIM5, ENABLE);
+    GPIO_PinRemapConfig (GPIO_FullRemap_TIM2,ENABLE);
+    GPIO_PinRemapConfig (GPIO_FullRemap_TIM3,ENABLE);
+    GPIO_PinRemapConfig (GPIO_Remap_SWJ_Disable,ENABLE);
 
     for (i = 0; i < numPins; ++i)
-        ESP_Wiring_Init_Pin (pins+i);
+        ESP_Wiring_Init_Pin (i,pins+i);
 
     ESP_Wiring_ADC_Start ();
 }
