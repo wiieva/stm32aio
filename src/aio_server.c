@@ -9,7 +9,7 @@
 #include "ir_send.h"
 #include "ui_input.h"
 
-#define _SPI_PROFILE_
+//#define _SPI_PROFILE_
 
 #ifdef STM32F10X_CL
 #define SPI_FLAG_RXNE SPI_SR_RXNE
@@ -23,20 +23,20 @@ void (*scheduled_buf_handler) () = 0;
 void SPI1_RxSkip_IRQHandler ();
 void SPI1_AnalogWrite_IRQHandler ();
 
-inline void ESP_SPI1_Set_IRQ_Handler (void (*pfn)()) 
+inline void ESP_SPI1_Set_IRQ_Handler (void (*pfn)())
 {
     extern volatile uint32_t _svector[];
     _svector[51] = (uint32_t)pfn;
 }
 
-inline void ESP_SPI_Send (uint16_t val) 
+inline void ESP_SPI_Send (uint16_t val)
 {
 //    while (!(ESP_SPI->SR & SPI_I2S_FLAG_TXE));
     ESP_SPI->DR = val;
     ESP_SPI1_Set_IRQ_Handler (SPI1_RxSkip_IRQHandler);
 }
 
-inline void ESP_SPI_ScheduleSendBuffer (volatile void *buf,uint16_t size) 
+inline void ESP_SPI_ScheduleSendBuffer (volatile void *buf,uint16_t size)
 {
     ESP_SPI_Send (size);
     if (size){
@@ -48,7 +48,7 @@ inline void ESP_SPI_ScheduleSendBuffer (volatile void *buf,uint16_t size)
     }
 }
 
-inline void ESP_SPI_ScheduleRecvBuffer (volatile void *buf,uint16_t size,void (*handler)()) 
+inline void ESP_SPI_ScheduleRecvBuffer (volatile void *buf,uint16_t size,void (*handler)())
 {
     ESP_SPI_Send (size);
     scheduled_recv_buf_size = (size+1)/2;
@@ -60,12 +60,12 @@ typedef void (*ESP_SPI_Cmd_Handler) (uint16_t);
 #define ARG1 ((rx_d >>8)  & 0xFF)
 #define ARG2 ((rx_d >> 5) & 0x7)
 
-void ESP_SPI_Cmd_Nop (uint16_t rx_d) 
+void ESP_SPI_Cmd_Nop (uint16_t rx_d)
 {
 	(void)rx_d;
 }
 
-void ESP_SPI_Cmd_RdStream(uint16_t rx_d) 
+void ESP_SPI_Cmd_RdStream(uint16_t rx_d)
 {
 	uint8_t *ptr = 0;
     uint16_t cnt = cbuf_read_ptr (ESP_Mic_Buffer(),&ptr,ARG1);
@@ -82,40 +82,55 @@ void ESP_SPI_Cmd_WrStream_Buf_Handler ()
         DMA_Cmd(DMA2_Channel3,ENABLE);
 }
 
-void ESP_SPI_Cmd_WrStream(uint16_t rx_d) 
+void ESP_SPI_Cmd_WrStream(uint16_t rx_d)
 {
     uint8_t *ptr = 0;
     uint16_t cnt = cbuf_write_ptr (ESP_Speaker_Buffer(),&ptr,ARG1);
     ESP_SPI_ScheduleRecvBuffer (ptr,cnt,ESP_SPI_Cmd_WrStream_Buf_Handler);
 }
 
-void ESP_SPI_Cmd_AnalogRead(uint16_t rx_d) 
+void ESP_SPI_Cmd_AnalogRead(uint16_t rx_d)
 {
     ESP_SPI_Send (ESP_Wiring_AnalogRead (ARG1));
 }
 
-void ESP_SPI_Cmd_DigitalRead(uint16_t rx_d) 
+void ESP_SPI_Cmd_DigitalRead(uint16_t rx_d)
 {
     ESP_SPI_Send (ESP_Wiring_DigitalRead (ARG1));
 }
 
-void ESP_SPI_Cmd_DigitalWrite(uint16_t rx_d) 
+void ESP_SPI_Cmd_DigitalWrite(uint16_t rx_d)
 {
     ESP_Wiring_DigitalWrite (ARG1,ARG2);
 }
 
-void ESP_SPI_Cmd_AnalogWrite(uint16_t rx_d) 
+void ESP_SPI_Cmd_AnalogWrite(uint16_t rx_d)
 {
     scheduled_cmd_rx_d = rx_d;
     ESP_SPI1_Set_IRQ_Handler (SPI1_AnalogWrite_IRQHandler);
 }
 
-void ESP_SPI_Cmd_PinMode(uint16_t rx_d) 
+void ESP_SPI_Cmd_PinMode(uint16_t rx_d)
 {
     ESP_Wiring_PinMode (ARG1,ARG2);
 }
 
-void ESP_SPI_Cmd_AudioInMode (uint16_t rx_d) 
+static AIO_PwmParms pwm_parms;
+
+void ESP_SPI_Cmd_SetPwmParms_Handler ()
+{
+    ESP_Wiring_SetPwmParms(scheduled_cmd_rx_d>>8,pwm_parms.freq,pwm_parms.limit);
+}
+
+void ESP_SPI_Cmd_SetPwmParms (uint16_t rx_d)
+{
+    scheduled_cmd_rx_d = rx_d;
+    uint16_t cnt =  ARG1;
+
+    ESP_SPI_ScheduleRecvBuffer (&pwm_parms,sizeof (pwm_parms),ESP_SPI_Cmd_SetPwmParms_Handler);
+}
+
+void ESP_SPI_Cmd_AudioInMode (uint16_t rx_d)
 {
 
     switch (ARG1) {
@@ -128,7 +143,7 @@ void ESP_SPI_Cmd_AudioInMode (uint16_t rx_d)
     }
 }
 
-void ESP_SPI_Cmd_AudioOutMode (uint16_t rx_d) 
+void ESP_SPI_Cmd_AudioOutMode (uint16_t rx_d)
 {
     switch (ARG1) {
     case AIO_AUDIO_OFF:   ESP_Speaker_Stop();    break;
@@ -140,20 +155,19 @@ void ESP_SPI_Cmd_AudioOutMode (uint16_t rx_d)
     }
 }
 
-void ESP_SPI_Cmd_GetVadState (uint16_t rx_d) 
+void ESP_SPI_Cmd_GetVadState (uint16_t rx_d)
 {
     (void)rx_d;
     extern int vad_state;
     ESP_SPI_Send (vad_state);
-
 }
 
-void ESP_SPI_Cmd_SendIR_Buf_Handler () 
+void ESP_SPI_Cmd_SendIR_Buf_Handler ()
 {
     cbuf_write_commit(&ir_sym_buf);
 }
 
-void ESP_SPI_Cmd_SendIR (uint16_t rx_d) 
+void ESP_SPI_Cmd_SendIR (uint16_t rx_d)
 {
     uint8_t *ptr = 0;
     uint16_t cnt =  ARG1;
@@ -197,23 +211,26 @@ void ESP_SPI_Cmd_GetInputState (uint16_t rx_d)
 }
 
 
-void ESP_SPI_Cmd_Test(uint16_t rx_d) 
+void ESP_SPI_Cmd_Test(uint16_t rx_d)
 {
     (void)rx_d;
     static uint16_t test;
     ESP_SPI_Send (++test);
 }
 
-const ESP_SPI_Cmd_Handler cmd_handlers[] = 
+const ESP_SPI_Cmd_Handler cmd_handlers[] =
 {
     ESP_SPI_Cmd_Nop,
     ESP_SPI_Cmd_RdStream,    // 67
     ESP_SPI_Cmd_WrStream,    // 91
+
     ESP_SPI_Cmd_AnalogRead,  // 52
     ESP_SPI_Cmd_DigitalRead, // 65
     ESP_SPI_Cmd_AnalogWrite, // 34
     ESP_SPI_Cmd_DigitalWrite,// 42
     ESP_SPI_Cmd_PinMode,     // 67
+    ESP_SPI_Cmd_SetPwmParms,
+
     ESP_SPI_Cmd_AudioInMode,
     ESP_SPI_Cmd_AudioOutMode,
     ESP_SPI_Cmd_GetVadState,
@@ -233,10 +250,10 @@ const ESP_SPI_Cmd_Handler cmd_handlers[] =
     ESP_SPI_Cmd_Nop, ESP_SPI_Cmd_Nop,
     ESP_SPI_Cmd_Nop, ESP_SPI_Cmd_Nop, ESP_SPI_Cmd_Nop, ESP_SPI_Cmd_Nop,
     ESP_SPI_Cmd_Nop, ESP_SPI_Cmd_Nop, ESP_SPI_Cmd_Nop, ESP_SPI_Cmd_Nop,
-    ESP_SPI_Cmd_Nop, ESP_SPI_Cmd_Nop
+    ESP_SPI_Cmd_Nop,
 };
 
-void SPI1_IRQHandler(void) 
+void SPI1_IRQHandler(void)
 {
 
 #ifdef _SPI_PROFILE_
@@ -261,7 +278,7 @@ void SPI1_IRQHandler(void)
 #endif
 }
 
-void SPI1_AnalogWrite_IRQHandler () 
+void SPI1_AnalogWrite_IRQHandler ()
 {
     if (!(SPI1->SR & SPI_FLAG_RXNE))
         return;
@@ -270,7 +287,7 @@ void SPI1_AnalogWrite_IRQHandler ()
     ESP_SPI1_Set_IRQ_Handler (SPI1_IRQHandler);
 }
 
-void SPI1_RecvBuf_IRQHandler () 
+void SPI1_RecvBuf_IRQHandler ()
 {
     if (!(SPI1->SR & SPI_FLAG_RXNE))
         return;
@@ -283,7 +300,7 @@ void SPI1_RecvBuf_IRQHandler ()
     }
 }
 
-void SPI1_RxSkip_IRQHandler () 
+void SPI1_RxSkip_IRQHandler ()
 {
     if (!(SPI1->SR & SPI_FLAG_RXNE))
         return;
@@ -295,7 +312,7 @@ void SPI1_RxSkip_IRQHandler ()
         ESP_SPI1_Set_IRQ_Handler (SPI1_RecvBuf_IRQHandler);
 }
 
-void DMA1_Channel3_IRQHandler(void) 
+void DMA1_Channel3_IRQHandler(void)
 {
    if(DMA1->ISR & DMA1_IT_TC3) {
        DMA1->IFCR = DMA1_IT_TC3;
@@ -303,7 +320,7 @@ void DMA1_Channel3_IRQHandler(void)
     }
 }
 
-void ESP_SPI_Init () 
+void ESP_SPI_Init ()
 {
     RCC_AHBPeriphClockCmd (RCC_AHBPeriph_DMA1,ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_SPI1, ENABLE);
@@ -326,7 +343,6 @@ void ESP_SPI_Init ()
     gpio.GPIO_Speed   = GPIO_Speed_50MHz;
     /* Connect PXx to SPI */
     GPIO_PinRemapConfig (GPIO_Remap_SPI1,ENABLE);
-    GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable,ENABLE);
     /* Configure SPI pins alternate function push-pull */
     gpio.GPIO_Pin = ESP_SPI_MISO_PIN;
     gpio.GPIO_Mode    = GPIO_Mode_AF_PP;

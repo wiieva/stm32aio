@@ -26,6 +26,7 @@ void Set_System(void)
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA|RCC_APB2Periph_GPIOB|RCC_APB2Periph_GPIOC|RCC_APB2Periph_GPIOD|RCC_APB2Periph_AFIO, ENABLE);
     RCC_AHBPeriphClockCmd (RCC_AHBPeriph_DMA1,ENABLE);
     RCC_ADCCLKConfig (RCC_PCLK2_Div8);
+	GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable,ENABLE);
 }
 
 void delay_ (uint32_t n)
@@ -34,6 +35,7 @@ void delay_ (uint32_t n)
     for ( i = 0; i < n; i++) {}
 }
 
+     uint32_t _t,_h,_p;
 
 int main(void)
 {
@@ -44,11 +46,18 @@ int main(void)
     ESP_CTL_DoResetESP (ESP8266_ResetStop);
     DelayMs (5);
 
+#if 0
+    ESP_IRSend_Init ();
+
+    for (;;) {
+        ir_sendSony (0xA90,12);
+        DelayMs (70);
+    }
+#endif
 
 #if 0
     BME280_Init ();
     int32_t x,ut=0,uh=0,up=0;
-    uint32_t _t,_h,_p;
     for (;;) {
         x = BME280_Read_UTPH (&ut,&up,&uh);
         _t = BME280_CalcT(ut);

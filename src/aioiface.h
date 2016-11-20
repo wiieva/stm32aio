@@ -10,6 +10,7 @@ enum AIOCommand {
     AIO_CMD_ANALOG_WRITE,
     AIO_CMD_DIGITAL_WRITE,
     AIO_CMD_PIN_MODE,
+    AIO_CMD_SET_PWM_PARMS,
     AIO_CMD_AUDIO_IN_MODE,
     AIO_CMD_AUDIO_OUT_MODE,
     AIO_CMD_GET_VAD_STATE,
@@ -30,6 +31,11 @@ typedef struct {
     uint8_t arg2 : 3;
     uint8_t arg1;
 } __attribute__ ((packed)) AIO_Cmd_Body;
+
+typedef struct {
+    uint16_t freq;
+    uint16_t limit;
+} __attribute__ ((packed)) AIO_PwmParms;
 
 // Audio modes definition for AIO_CMD_AUDIO_IN_MODE and AIO_CMD_AUDIO_OUT_MODE
 enum AIOAudioMode {
