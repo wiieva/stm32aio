@@ -25,16 +25,17 @@ void InitTMR2 (int khz) {
     TIM_Cmd(TIM2, ENABLE);
 }
 
-void InitTMR6 () {
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM6, ENABLE);
+void InitTMR1 () {
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE);
     TIM_TimeBaseInitTypeDef tim;
     tim.TIM_Period = 100;
     tim.TIM_Prescaler = CPUFREQ_MHZ-1;
     tim.TIM_ClockDivision = 0;
     tim.TIM_CounterMode = TIM_CounterMode_Up;
-    TIM_TimeBaseInit(TIM6, &tim);
-    TIM_Cmd(TIM6, DISABLE);
-    TIM_ITConfig(TIM6,TIM_IT_Update,ENABLE);
+    tim.TIM_RepetitionCounter = 0;
+    TIM_TimeBaseInit(TIM1, &tim);
+    TIM_Cmd(TIM1, DISABLE);
+    TIM_ITConfig(TIM1,TIM_IT_Update,ENABLE);
 }
 
 void InitTMR2_PWM() {
@@ -46,15 +47,15 @@ void InitTMR2_PWM() {
     GPIO_PinRemapConfig(GPIO_FullRemap_TIM2,ENABLE);
 
     TIM_OCInitTypeDef timerPWM;
-    timerPWM.TIM_Pulse = (CPUFREQ_KHZ / ir_khz) * 40 / 100;
-    timerPWM.TIM_OCMode = TIM_OCMode_PWM1;
+    timerPWM.TIM_Pulse = (CPUFREQ_KHZ / ir_khz) * 60 / 100;
+    timerPWM.TIM_OCMode = TIM_OCMode_Active;
     timerPWM.TIM_OutputState = TIM_OutputState_Enable;
     TIM_OC4Init(TIM2, &timerPWM);
 }
 
-void TMR6_Interrupts_Config(void) {
+void TMR1_Interrupts_Config(void) {
     NVIC_InitTypeDef nvic;
-    nvic.NVIC_IRQChannel = TIM6_IRQn;
+    nvic.NVIC_IRQChannel = TIM1_UP_IRQn;
     nvic.NVIC_IRQChannelPreemptionPriority = 0;
     nvic.NVIC_IRQChannelSubPriority = 0;
     nvic.NVIC_IRQChannelCmd = ENABLE;
@@ -62,6 +63,8 @@ void TMR6_Interrupts_Config(void) {
 }
 
 static void enableIROut(int khz) {
+    if (ir_tx_state)
+        return;
     cbuf_init (&ir_raw_buf,ir_raw_buf_size);
     InitTMR2(khz);
     InitTMR2_PWM ();
@@ -69,38 +72,39 @@ static void enableIROut(int khz) {
 }
 
 static void disableIROut () {
+    TIM_SelectOCxM(TIM2,TIM_Channel_4,TIM_ForcedAction_InActive);
     TIM_Cmd(TIM2, DISABLE);
-    TIM_Cmd(TIM6, DISABLE);
+    TIM_Cmd(TIM1, DISABLE);
+    if (ir_tx_state)
+        cbuf_destroy (&ir_raw_buf);
     ir_tx_state = 0;
-    cbuf_destroy (&ir_raw_buf);
 }
 
-void TIM6_IRQHandler () {
+void TIM1_UP_IRQHandler () {
     volatile int16_t c;
 
-    if (TIM_GetITStatus(TIM6, TIM_IT_Update) == RESET)
+    if (TIM_GetITStatus(TIM1, TIM_IT_Update) == RESET)
         return;
-    TIM_ClearITPendingBit(TIM6, TIM_IT_Update);
+    TIM_ClearITPendingBit(TIM1, TIM_IT_Update);
 
-    if (!ir_tx_state)
-        return;
+    do {
+        if (!cbuf_read(&ir_raw_buf,(uint8_t*)&c,sizeof(c)))  {
+            disableIROut();
+            return ;
+        }
 
-    if (!cbuf_read(&ir_raw_buf,(uint8_t*)&c,sizeof(c))) {
-        disableIROut();
-        return ;
+        if (c <= 0) {
+            c = -c;
+            TIM_SelectOCxM(TIM2,TIM_Channel_4,TIM_ForcedAction_Active);
+        }
+        else {
+            TIM_SelectOCxM(TIM2,TIM_Channel_4,TIM_OCMode_PWM1);
+            TIM_CCxCmd(TIM2, TIM_Channel_4, TIM_CCx_Enable);
+        }
     }
+    while (!c);
 
-    if (c < 0) {
-        c = -c;
-        TIM_SelectOCxM(TIM2,TIM_Channel_4,TIM_ForcedAction_InActive);
-    }
-    else {
-        TIM_SelectOCxM(TIM2,TIM_Channel_4,TIM_OCMode_PWM1);
-        TIM_CCxCmd(TIM2, TIM_Channel_4, TIM_CCx_Enable);
-    }
-    TIM_SetAutoreload(TIM6,c);
-    if (c == 0)
-        disableIROut();
+    TIM_SetAutoreload(TIM1,c);
 }
 
 
@@ -109,8 +113,8 @@ static void space(int16_t time) {
     time = -time;
     cbuf_write (&ir_raw_buf, (uint8_t*)&time,sizeof (time));
     if (!time) {
-        TIM_SetAutoreload(TIM6,100);
-        TIM_Cmd(TIM6, ENABLE);
+        TIM_SetAutoreload(TIM1,100);
+        TIM_Cmd(TIM1, ENABLE);
     }
 }
 
@@ -325,8 +329,8 @@ void ir_sendSAMSUNG(unsigned long data, int nbits)
 void ESP_IRSend_Init ()
 {
     cbuf_init (&ir_sym_buf,ir_sym_buf_size);
-    InitTMR6 ();
-    TMR6_Interrupts_Config ();
+    InitTMR1 ();
+    TMR1_Interrupts_Config ();
     ir_tx_state = 0;
 }
 
