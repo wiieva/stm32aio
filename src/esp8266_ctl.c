@@ -20,7 +20,7 @@ void ESP_CTL_DoResetESP (int mode)
     gpio.GPIO_Pin = ESP_RESET_PIN;
     GPIO_Init(ESP_RESET_PORT, &gpio);
 
-    GPIO_WriteBit(ESP_RESET_PORT,ESP_RESET_PIN,0); // Reset
+    GPIO_WriteBit(ESP_RESET_PORT,ESP_RESET_PIN,1); // Reset
 
     if (mode == ESP8266_ResetStop)
         return;
@@ -44,7 +44,7 @@ void ESP_CTL_DoResetESP (int mode)
     // Wait for signal settles, and reset done
     DelayMs (30);
 
-    GPIO_WriteBit(ESP_RESET_PORT,ESP_RESET_PIN,1); // RUN
+    GPIO_WriteBit(ESP_RESET_PORT,ESP_RESET_PIN,0); // RUN
     // Wait for ESP start and read boot config
     DelayMs (50);
 
