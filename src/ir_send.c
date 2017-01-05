@@ -73,7 +73,6 @@ static void enableIROut(int khz) {
 
 static void disableIROut () {
     TIM_SelectOCxM(TIM2,TIM_Channel_4,TIM_ForcedAction_InActive);
-    TIM_Cmd(TIM2, DISABLE);
     TIM_Cmd(TIM1, DISABLE);
     if (ir_tx_state)
         cbuf_destroy (&ir_raw_buf);
