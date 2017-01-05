@@ -125,10 +125,14 @@ void ESP_Mic_Start (int sampleRate,int _speex_mode)
     audio_in_do_start = 1;
 }
 
+static void ESP_Mic_Do_Stop ();
+
 static void ESP_Mic_Do_Start ()
 {
-    if (audio_in_started)
-       ESP_Mic_Stop ();
+    if (audio_in_started) {
+       //ESP_Mic_Do_Stop ();
+       return ;
+    }
 
     speex_mode = do_speex_mode;
 
@@ -183,7 +187,7 @@ void ESP_Mic_Stop ()
     audio_in_do_start = 0;
 }
 
-void ESP_Mic_Do_Stop ()
+static void ESP_Mic_Do_Stop ()
 {
     if (!audio_in_started)
        return;
