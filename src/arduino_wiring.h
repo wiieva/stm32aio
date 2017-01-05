@@ -8,6 +8,7 @@ uint16_t ESP_Wiring_AnalogRead (uint16_t pin);
 void ESP_Wiring_AnalogWrite (uint16_t pin,uint16_t val);
 void ESP_Wiring_SetPwmParms (uint16_t pin,uint16_t freq,uint16_t limit);
 void ESP_Wiring_Init ();
+void ESP_Wiring_OffAll ();
 void ESP_Wiring_ADC_Start ();
 
 

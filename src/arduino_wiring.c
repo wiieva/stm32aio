@@ -9,38 +9,40 @@ typedef struct {
     TIM_TypeDef *tim;
     int channel;
     void (*tim_oc_init) (TIM_TypeDef* TIMx, TIM_OCInitTypeDef* TIM_OCInitStruct);
+    int tim_prescaler;
 } ArduinoPinDef;
 
 //GPIO_
 
 const ArduinoPinDef pins[] =
 {
-    {GPIOC,GPIO_Pin_11,0,    0,             0          }, // 0
-    {GPIOC,GPIO_Pin_10,0,    0,             0          }, // 1
-    {GPIOB,GPIO_Pin_12,0,    0,             0          }, // 2
-    {GPIOC,GPIO_Pin_6, TIM3, TIM_Channel_1, TIM_OC1Init}, // 3
-    {GPIOB,GPIO_Pin_14,0,    0,             0,         }, // 4
-    {GPIOC,GPIO_Pin_7, TIM3, TIM_Channel_2, TIM_OC2Init}, // 5
-    {GPIOC,GPIO_Pin_8, TIM3, TIM_Channel_3, TIM_OC3Init}, // 6
-    {GPIOA,GPIO_Pin_5, 0,    0,             0          }, // 7
-    {GPIOC,GPIO_Pin_12,0,    0,             0          }, // 8
-    {GPIOC,GPIO_Pin_9, TIM3, TIM_Channel_4, TIM_OC4Init}, // 9
-    {GPIOA,GPIO_Pin_1, TIM5, TIM_Channel_2, TIM_OC2Init}, // 10
-    {GPIOA,GPIO_Pin_2, TIM5, TIM_Channel_3, TIM_OC3Init}, // 11
-    {GPIOA,GPIO_Pin_14,0,    0,             0          }, // 12
-    {GPIOA,GPIO_Pin_13,0,    0,             0          }, // 13
+    {GPIOC,GPIO_Pin_11,0,    0,             0,           0}, // 0
+    {GPIOC,GPIO_Pin_10,0,    0,             0,           0}, // 1
+    {GPIOB,GPIO_Pin_12,0,    0,             0,           0}, // 2
+    {GPIOC,GPIO_Pin_6, TIM3, TIM_Channel_1, TIM_OC1Init, 1000}, // 3
+    {GPIOB,GPIO_Pin_14,0,    0,             0,           0}, // 4
+    {GPIOC,GPIO_Pin_7, TIM3, TIM_Channel_2, TIM_OC2Init, 1000}, // 5
+    {GPIOC,GPIO_Pin_8, TIM3, TIM_Channel_3, TIM_OC3Init, 1000}, // 6
+    {GPIOA,GPIO_Pin_5, 0,    0,             0,           0}, // 7
+    {GPIOC,GPIO_Pin_12,0,    0,             0,           0}, // 8
+    {GPIOC,GPIO_Pin_9, TIM3, TIM_Channel_4, TIM_OC4Init, 1000}, // 9
+    {GPIOA,GPIO_Pin_1, TIM5, TIM_Channel_2, TIM_OC2Init, 1000}, // 10
+    {GPIOA,GPIO_Pin_2, TIM5, TIM_Channel_3, TIM_OC3Init, 1000}, // 11
+    {GPIOA,GPIO_Pin_14,0,    0,             0,           0}, // 12
+    {GPIOA,GPIO_Pin_13,0,    0,             0,           0}, // 13
     // Analog pins
-    {GPIOC,GPIO_Pin_0, 0,    ADC_Channel_10,0          }, // A0
-    {GPIOC,GPIO_Pin_1, 0,    ADC_Channel_11,0          }, // A1
-    {GPIOC,GPIO_Pin_2, 0,    ADC_Channel_12,0          }, // A2
-    {GPIOA,GPIO_Pin_3, 0,    ADC_Channel_3, 0          }, // A3
-    {GPIOA,GPIO_Pin_6, 0,    ADC_Channel_6, 0          }, // A4
-    {GPIOA,GPIO_Pin_7, 0,    ADC_Channel_7, 0          }, // A5
-    {GPIOC,GPIO_Pin_5, 0,    ADC_Channel_15,0          }, // Batary meausure
+    {GPIOC,GPIO_Pin_0, 0,    ADC_Channel_10,0,           0}, // A0
+    {GPIOC,GPIO_Pin_1, 0,    ADC_Channel_11,0,           0}, // A1
+    {GPIOC,GPIO_Pin_2, 0,    ADC_Channel_12,0,           0}, // A2
+    {GPIOA,GPIO_Pin_3, 0,    ADC_Channel_3, 0,           0}, // A3
+    {GPIOA,GPIO_Pin_6, 0,    ADC_Channel_6, 0,           0}, // A4
+    {GPIOA,GPIO_Pin_7, 0,    ADC_Channel_7, 0,           0}, // A5
+    {GPIOC,GPIO_Pin_5, 0,    ADC_Channel_15,0,           0}, // Batary meausure
     // additional pins
-    {GPIOB,GPIO_Pin_10,TIM2, TIM_Channel_3, TIM_OC3Init}, // Backlight
-    {GPIOA,GPIO_Pin_0, 0,    0,             0          }, // KB2 (PWR)
-    {GPIOC,GPIO_Pin_14,0,    0,             0          }, // Charging
+    {GPIOB,GPIO_Pin_10,TIM2, TIM_Channel_3, TIM_OC3Init, 1}, // Backlight
+    {GPIOA,GPIO_Pin_0, 0,    0,             0,           0}, // KB2 (PWR)
+    {GPIOC,GPIO_Pin_14,0,    0,             0,           0}, // Charging
+    {GPIOB,GPIO_Pin_11,TIM2, TIM_Channel_4, TIM_OC4Init, 1}  // IR
 };
 
 #define numPins (sizeof (pins)/sizeof(pins[0]))
@@ -50,6 +52,7 @@ static int16_t adc_buffer[numPins];
 static uint16_t pwmFreq[numPins];
 static uint16_t pwmLimit[numPins];
 static int8_t pinModes[numPins];
+static int16_t pwmVal[numPins];
 
 #define PWM_DEF_HZ 1000
 static int ESP_Wiring_Init_Pin (uint16_t pin, const ArduinoPinDef *_pin) {
@@ -61,9 +64,17 @@ static int ESP_Wiring_Init_Pin (uint16_t pin, const ArduinoPinDef *_pin) {
     GPIO_Init(_pin->port, &gpio);
 
     if (_pin->tim) {
+        if (_pin->tim_prescaler == 1){
+            pwmFreq[pin] = 38000;
+        } else {
+            pwmFreq[pin] = PWM_DEF_HZ;
+        }
+        pwmLimit[pin] = 255;
+        pwmVal[pin] = 0;
+
         TIM_TimeBaseInitTypeDef tim;
-        tim.TIM_Period = (CPUFREQ_KHZ / PWM_DEF_HZ) - 1;
-        tim.TIM_Prescaler = 1000;
+        tim.TIM_Period = ((CPUFREQ_HZ/_pin->tim_prescaler) / pwmFreq[pin]) - 1;
+        tim.TIM_Prescaler = (_pin->tim_prescaler==1)?0:_pin->tim_prescaler;
         tim.TIM_ClockDivision = 0;
         tim.TIM_CounterMode = TIM_CounterMode_Up;
         TIM_TimeBaseInit(_pin->tim, &tim);
@@ -79,8 +90,6 @@ static int ESP_Wiring_Init_Pin (uint16_t pin, const ArduinoPinDef *_pin) {
         TIM_SelectOCxM(_pin->tim, _pin->channel,TIM_OCMode_PWM1);
         TIM_CCxCmd(_pin->tim, _pin->channel, TIM_CCx_Enable);
     }
-    pwmFreq[pin] = PWM_DEF_HZ;
-    pwmLimit[pin] = 255;
     return 1;
 }
 
@@ -164,7 +173,8 @@ void ESP_Wiring_AnalogWrite (uint16_t pin,uint16_t val) {
        return;
 
     __IO uint16_t *ccr = &(_pin->tim->CCR1) + _pin->channel/2;
-    *ccr = (CPUFREQ_KHZ / pwmFreq[pin])*val/pwmLimit[pin];
+    *ccr = ((CPUFREQ_HZ/_pin->tim_prescaler) / pwmFreq[pin])*val/pwmLimit[pin];
+    pwmVal[pin] = val;
 }
 
 void ESP_Wiring_SetPwmParms (uint16_t pin,uint16_t freq,uint16_t limit) {
@@ -175,8 +185,11 @@ void ESP_Wiring_SetPwmParms (uint16_t pin,uint16_t freq,uint16_t limit) {
         freq = PWM_DEF_HZ;
     if (!limit)
         limit = 255;
+    pwmFreq[pin] = freq;
+    pwmLimit[pin] = limit;
 
-    _pin->tim->ARR = (CPUFREQ_KHZ / PWM_DEF_HZ) - 1;
+    _pin->tim->ARR = ((CPUFREQ_HZ/_pin->tim_prescaler) / freq) - 1;
+    ESP_Wiring_AnalogWrite(pin,pwmVal[pin]);
 }
 
 void ESP_Wiring_ADC_Start () {
@@ -187,6 +200,7 @@ void ESP_Wiring_ADC_Start () {
     adc.ADC_Mode = ADC_Mode_Independent;
     adc.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;
     adc.ADC_DataAlign = ADC_DataAlign_Right;
+    adc.ADC_ContinuousConvMode = ENABLE;
 
     int i,chnls=0;
     for (i = 0; i < numPins; ++i) {
@@ -217,6 +231,12 @@ void ESP_Wiring_ADC_Start () {
     ADC_DMACmd(ADC1, ENABLE);
     DMA_Cmd(DMA1_Channel1, ENABLE);
     ADC_SoftwareStartConvCmd(ADC1,ENABLE);
+}
+
+void ESP_Wiring_OffAll () {
+    int i;
+    for (i = 0; i < numPins; ++i)
+        ESP_Wiring_Set_Pin_Mode (i,pins+i,AIO_PIN_DIGITAL_IN);
 }
 
 void ESP_Wiring_Init () {
