@@ -3,11 +3,13 @@
 #include <stm32f10x.h>
 
 #include "esp8266_ctl.h"
+#include "arduino_wiring.h"
 #include "espeva_stmboard.h"
 #include "tools.h"
 
 volatile int espAutoResetDetected = 0;
-
+static unsigned long pwr_pressed_systick_ms = 0;
+static int esp8266_reset_state = ESP8266_ResetStop;
 
 void ESP_CTL_DoResetESP (int mode)
 {
@@ -21,10 +23,12 @@ void ESP_CTL_DoResetESP (int mode)
     GPIO_Init(ESP_RESET_PORT, &gpio);
 
     GPIO_WriteBit(ESP_RESET_PORT,ESP_RESET_PIN,1); // Reset
-
+    esp8266_reset_state = mode;
     if (mode == ESP8266_ResetStop)
         return;
 
+    DelayMs (5);
+    ESP_Wiring_OffAll ();
     /* Configure ESP.GPIO0 pin */
     gpio.GPIO_Pin = ESP_GPIO0_PIN;
     GPIO_Init(ESP_GPIO0_PORT, &gpio);
@@ -76,9 +80,39 @@ void ESP_CTL_Modem_SetLineState (uint16_t state) {
         espAutoResetDetected = 1;
 }
 
+
+
+void ESP_CTL_CheckPowerKB () {
+    int pwr_pressed = GPIO_ReadInputDataBit(GPIOA,GPIO_Pin_0);
+    if (!pwr_pressed) {
+        pwr_pressed_systick_ms = 0;
+        return;
+    }
+    if (!pwr_pressed_systick_ms) {
+        pwr_pressed_systick_ms = GetSysTickMS ();
+        return;
+    }
+
+    unsigned long tout = (esp8266_reset_state == ESP8266_ResetStop)?200:3000;
+
+    if (pwr_pressed_systick_ms == UINT32_MAX || GetSysTickMS() - pwr_pressed_systick_ms < tout)
+        return;
+
+    pwr_pressed_systick_ms = UINT32_MAX;
+
+    if (esp8266_reset_state == ESP8266_ResetStop) {
+        ESP_CTL_DoResetESP (ESP8266_ResetRun);
+    } else {
+        ESP_CTL_DoResetESP (ESP8266_ResetStop);
+        DelayMs (5);
+        ESP_Wiring_OffAll();
+    }
+}
+
 void ESP_CTL_Run () {
     if (espAutoResetDetected) {
          espAutoResetDetected =0;
         ESP_CTL_DoResetESP (ESP8266_ResetFlash);
     }
+    ESP_CTL_CheckPowerKB ();
 }
