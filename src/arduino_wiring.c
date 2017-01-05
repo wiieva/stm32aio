@@ -246,7 +246,6 @@ void ESP_Wiring_Init () {
     GPIO_PinRemapConfig (GPIO_FullRemap_TIM2,ENABLE);
     GPIO_PinRemapConfig (GPIO_FullRemap_TIM3,ENABLE);
     GPIO_PinRemapConfig (GPIO_Remap_SWJ_Disable,ENABLE);
-//    GPIO_PinRemapConfig (GPIO_Remap_SWJ_JTAGDisable,ENABLE);
 
     for (i = 0; i < numPins; ++i)
         ESP_Wiring_Init_Pin (i,pins+i);
