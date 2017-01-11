@@ -1,0 +1,31 @@
+// Поместите параметры в этот файл, чтобы перезаписать параметры по умолчанию и пользовательские параметры.
+{
+
+    "C_Cpp.autocomplete": "Disabled",
+
+    "clang.cflags": [ "-I${workspaceRoot}/src/common",
+        "-I${workspaceRoot}/src/usbuart",
+        "-I${workspaceRoot}/src/usbstorage",
+        "-I${workspaceRoot}/src/stm32f",
+        "-I${workspaceRoot}/lib/STM32_USB_Device_Library/Core/inc",
+        "-I${workspaceRoot}/lib/STM32_USB_Device_Library/Class/cdc/inc",
+        "-I${workspaceRoot}/lib/STM32_USB_Device_Library/Class/msc/inc",
+        "-I${workspaceRoot}/lib/STM32_USB_OTG_Driver/inc",
+        "-I${workspaceRoot}/lib/STM32F10x_StdPeriph_Driver/inc",
+        "-I${workspaceRoot}/lib/CMSIS/Include",
+        "-I${workspaceRoot}/lib/pdm",
+        "-I${workspaceRoot}/lib/helix/pub",
+        "-I${workspaceRoot}/lib/webrtc_vad/include",
+        "-I${workspaceRoot}/lib/STM32F10x_Speex_Lib/include/speex",
+        "-I${workspaceRoot}/variants/wiieva"
+    ],
+
+
+    // Enable diagnostic
+    "clang.diagnostic.enable": true,
+
+    // The delay after which diagnostic starts (in millisecond)
+    "clang.diagnostic.delay": 50
+
+
+}

@@ -78,7 +78,8 @@ set (CMAKE_ASM_FLAGS "-mthumb -mcpu=cortex-m3")
 
 add_executable (${PRJ} ${SRCS})
 target_include_directories (${PRJ} PRIVATE ${INCLUDES})
-add_custom_command (TARGET ${PRJ} POST_BUILD COMMAND ${CMAKE_OBJCOPY} ARGS --output-format=binary "${PRJ}" "${PRJ}.bin" )
+add_custom_command (TARGET ${PRJ} POST_BUILD COMMAND ${CMAKE_OBJCOPY} ARGS "--output-format=binary" "${PRJ}" "${PRJ}.bin" )
 
 add_custom_target (upload COMMAND st-flash write ${PRJ}.bin 0x8000000 )
+add_custom_target (upload-dfu COMMAND dfu-util -a 0 -D stm32aio.bin -s 0x8000000 DEPENDS ${PRJ})
 
