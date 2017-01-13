@@ -12,8 +12,6 @@ typedef struct {
     int tim_prescaler;
 } ArduinoPinDef;
 
-//GPIO_
-
 const ArduinoPinDef pins[] =
 {
     {GPIOC,GPIO_Pin_11,0,    0,             0,           0}, // 0
@@ -42,7 +40,8 @@ const ArduinoPinDef pins[] =
     {GPIOB,GPIO_Pin_10,TIM2, TIM_Channel_3, TIM_OC3Init, 1}, // Backlight
     {GPIOA,GPIO_Pin_0, 0,    0,             0,           0}, // KB2 (PWR)
     {GPIOC,GPIO_Pin_14,0,    0,             0,           0}, // Charging
-    {GPIOB,GPIO_Pin_11,TIM2, TIM_Channel_4, TIM_OC4Init, 1}  // IR
+    {GPIOB,GPIO_Pin_11,TIM2, TIM_Channel_4, TIM_OC4Init, 1}, // IR
+    {GPIOA,GPIO_Pin_9,0,     0,             0,           0}  // USB Power
 };
 
 #define numPins (sizeof (pins)/sizeof(pins[0]))
@@ -60,7 +59,7 @@ static int ESP_Wiring_Init_Pin (uint16_t pin, const ArduinoPinDef *_pin) {
     GPIO_InitTypeDef gpio;
     gpio.GPIO_Speed = GPIO_Speed_2MHz;
     gpio.GPIO_Pin = _pin->pin;
-    gpio.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+    gpio.GPIO_Mode = (pin==23)?GPIO_Mode_IPU:GPIO_Mode_IN_FLOATING;
     GPIO_Init(_pin->port, &gpio);
 
     if (_pin->tim) {
@@ -102,7 +101,7 @@ static int ESP_Wiring_Set_Pin_Mode (uint16_t pin, const ArduinoPinDef *_pin, int
     GPIO_InitTypeDef gpio;
     gpio.GPIO_Speed = GPIO_Speed_2MHz;
     gpio.GPIO_Pin = _pin->pin;
-    gpio.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+    gpio.GPIO_Mode = (pin==23)?GPIO_Mode_IPU:GPIO_Mode_IN_FLOATING;
 
     switch (mode){
     case AIO_PIN_DIGITAL_OUT:
@@ -113,7 +112,7 @@ static int ESP_Wiring_Set_Pin_Mode (uint16_t pin, const ArduinoPinDef *_pin, int
         if (!_pin->tim && _pin->channel)
             gpio.GPIO_Mode = GPIO_Mode_AIN;
         else
-            gpio.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+            gpio.GPIO_Mode = (pin==23)?GPIO_Mode_IPU:GPIO_Mode_IN_FLOATING;
         break;
     case AIO_PIN_ANALOG_OUT:
         if (!_pin->tim)
