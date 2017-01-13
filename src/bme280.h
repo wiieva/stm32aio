@@ -128,7 +128,7 @@ typedef struct {
 	int16_t  dig_H4;
 	int16_t  dig_H5;
 	int8_t   dig_H6;
-} BME280_Compensation_TypeDef;
+} __attribute__ ((packed)) BME280_Compensation_TypeDef ;
 
 // Function prototypes
 BME280_RESULT BME280_Init ();
@@ -167,3 +167,9 @@ float BME280_CalcTf(int32_t UT);
 float BME280_CalcPf(uint32_t UP);
 float BME280_CalcHf(uint32_t UH);
 #endif // BME280_USE_FLOAT
+
+void ESP_BME280_RequestData ();
+struct AIO_BME_Data;
+struct AIO_BME_Data *ESP_BME280_GetData ();
+void ESP_BME280_Run ();
+

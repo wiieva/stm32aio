@@ -18,6 +18,7 @@
 #include "bme280.h"
 #include "i2c.h"
 
+#define _USART_DEBUG_
 
 __ALIGN_BEGIN USB_OTG_CORE_HANDLE    USB_OTG_dev __ALIGN_END;
 
@@ -29,44 +30,17 @@ void Set_System(void)
 	GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable,ENABLE);
 }
 
-void delay_ (uint32_t n)
-{
-    uint32_t i;
-    for ( i = 0; i < n; i++) {}
-}
-
-     uint32_t _t,_h,_p;
-
 int main(void)
 {
-    delay_ (100);
     Set_System();
     // Configure systick for 1 ms tick
     SysTick_Config(CPUFREQ_KHZ);
     ESP_CTL_DoResetESP (ESP8266_ResetStop);
     DelayMs (5);
 
-#if 0
-    ESP_IRSend_Init ();
 
-    for (;;) {
-        ir_sendSony (0xA90,12);
-        DelayMs (70);
-    }
-#endif
 
-#if 0
     BME280_Init ();
-    int32_t x,ut=0,uh=0,up=0;
-    for (;;) {
-        x = BME280_Read_UTPH (&ut,&up,&uh);
-        _t = BME280_CalcT(ut);
-        _p = BME280_Pa_to_mmHg(BME280_CalcP(up));
-        _h = BME280_CalcH(uh);
-
-        DelayMs (10);
-    }
-#endif
     // Enable touch input for check boot mode
     ESP_UI_Input_Init();
     ESP_UI_Input_GetSysInfo ();
@@ -101,5 +75,6 @@ int main(void)
         ESP_IRSend_Run();
         ESP_Speaker_Decode_Run ();
         ESP_UI_Input_Run ();
+        ESP_BME280_Run ();
     }
 }

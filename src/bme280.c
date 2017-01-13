@@ -1,5 +1,9 @@
 #include "i2c.h"
 #include "bme280.h"
+#include "aioiface.h"
+
+static struct AIO_BME_Data bme_data;
+static int bme_request_data = 0;
 
 // Compensation parameters storage
 BME280_Compensation_TypeDef cal_param;
@@ -531,3 +535,28 @@ int32_t BME280_Pa_to_Alt(uint32_t P) {
 	// where XXXXXX - pressure at centered altitude
 }
 
+void ESP_BME280_RequestData () {
+    bme_request_data = 1;
+    bme_data.ready = 0;
+    bme_data.valid = 0;
+}
+
+struct AIO_BME_Data *ESP_BME280_GetData () {
+    return &bme_data;
+}
+
+void ESP_BME280_Run () {
+    if (!bme_request_data)
+        return;
+    bme_request_data = 0;
+    int32_t ut=0,uh=0,up=0;
+    if (BME280_Read_UTPH (&ut,&up,&uh) == BME280_ERROR) {
+        bme_data.valid = 0;
+        return;
+    }
+    bme_data.temperature = BME280_CalcT(ut);
+    bme_data.pressure = BME280_Pa_to_mmHg(BME280_CalcP(up));
+    bme_data.hummidity = BME280_CalcH(uh);
+    bme_data.valid = 1;
+    bme_data.ready = 1;
+}

@@ -8,6 +8,7 @@
 #include "arduino_wiring.h"
 #include "ir_send.h"
 #include "ui_input.h"
+#include "bme280.h"
 
 //#define _SPI_PROFILE_
 
@@ -210,6 +211,20 @@ void ESP_SPI_Cmd_GetInputState (uint16_t rx_d)
     ESP_SPI_ScheduleSendBuffer (&input_state,sizeof (input_state));
 }
 
+void ESP_SPI_Cmd_SetUartMode  (uint16_t rx_d)
+{
+    (void)rx_d;
+}
+
+
+void ESP_SPI_Cmd_GetBmeData (uint16_t rx_d)
+{
+    (void)rx_d;
+    static AIO_BME_Data data;
+    data = *ESP_BME280_GetData();
+    ESP_SPI_ScheduleSendBuffer (&data,sizeof (data));
+    ESP_BME280_RequestData ();
+}
 
 void ESP_SPI_Cmd_Test(uint16_t rx_d)
 {
@@ -242,8 +257,8 @@ const ESP_SPI_Cmd_Handler cmd_handlers[] =
     ESP_SPI_Cmd_RecvI2C,
     ESP_SPI_Cmd_GetSysInfo,
     ESP_SPI_Cmd_GetInputState,
-    ESP_SPI_Cmd_Nop,
-    ESP_SPI_Cmd_Nop,
+    ESP_SPI_Cmd_SetUartMode,
+    ESP_SPI_Cmd_GetBmeData,
 
     ESP_SPI_Cmd_Test,        // 47
 

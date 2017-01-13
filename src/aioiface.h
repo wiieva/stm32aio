@@ -21,8 +21,8 @@ enum AIOCommand {
     AIO_CMD_RECV_I2C,
     AIO_CMD_GET_SYSINFO,
     AIO_CMD_GET_INPUT_STATE,
-    AIO_CMD_GET_TC_RAW,
-    AIO_CMD_SAVE_TC_CAL,
+    AIO_CMD_UART_MODE,
+    AIO_CMD_GET_BME_DATA,
     AIO_CMD_TEST
 };
 
@@ -117,4 +117,20 @@ enum AIOKeyCode {
     AIO_KEY_CODE_RIGHT,
     AIO_KEY_CODE_OK
 };
+
+typedef struct AIO_BME_Data {
+    uint8_t ready;
+    uint8_t valid;
+    int16_t temperature;
+    uint32_t pressure;
+    uint32_t hummidity;
+} __attribute__  ((packed)) AIO_BME_Data;
+
+typedef struct {
+    int32_t baud_rate;
+    int8_t parity;
+    int8_t bits;
+    int8_t stop_bits;
+} __attribute__  ((packed)) AIO_SerialSetup;
+
 
