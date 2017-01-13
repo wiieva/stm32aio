@@ -6,17 +6,58 @@
 #include "arduino_wiring.h"
 #include "espeva_stmboard.h"
 #include "tools.h"
+#include "usart.h"
 
 volatile int espAutoResetDetected = 0;
 static unsigned long pwr_pressed_systick_ms = 0;
 static int esp8266_reset_state = ESP8266_ResetStop;
+
+void SYSCLKConfig_STOP(void) {
+    RCC_HSEConfig(RCC_HSE_ON);
+
+    if(RCC_WaitForHSEStartUp() == SUCCESS)
+    {
+         /* Enable PLL2 */
+         RCC_PLL2Cmd(ENABLE);
+
+         /* Wait till PLL2 is ready */
+         while(RCC_GetFlagStatus(RCC_FLAG_PLL2RDY) == RESET) {}
+
+         /* Enable PLL */
+         RCC_PLLCmd(ENABLE);
+
+         /* Wait till PLL is ready */
+         while(RCC_GetFlagStatus(RCC_FLAG_PLLRDY) == RESET){}
+
+         /* Select PLL as system clock source */
+         RCC_SYSCLKConfig(RCC_SYSCLKSource_PLLCLK);
+
+         /* Wait till PLL is used as system clock source */
+         while(RCC_GetSYSCLKSource() != 0x08){}
+    }
+}
+
+void ESP_CTL_EnterStopMode () {
+    EXTI_InitTypeDef exti;
+
+    // PWR button
+    exti.EXTI_Line = EXTI_Line0|EXTI_Line9;
+    exti.EXTI_LineCmd = ENABLE;
+    exti.EXTI_Mode = EXTI_Mode_Event;
+    exti.EXTI_Trigger = EXTI_Trigger_Rising;
+    EXTI_Init (&exti);
+    EXTI_ClearFlag(EXTI_Line0|EXTI_Line9);
+    PWR_EnterSTOPMode (PWR_Regulator_LowPower,PWR_STOPEntry_WFE);
+    SYSCLKConfig_STOP ();
+    EXTI_DeInit ();
+}
+
 
 void ESP_CTL_DoResetESP (int mode)
 {
     GPIO_InitTypeDef gpio;
     gpio.GPIO_Mode = GPIO_Mode_Out_PP;
     gpio.GPIO_Speed = GPIO_Speed_2MHz;
-
 
     /* Configure ESP.Reset pin */
     gpio.GPIO_Pin = ESP_RESET_PIN;
@@ -69,6 +110,7 @@ void ESP_CTL_Modem_SetLineState (uint16_t state) {
     /* RTS & DTR config */
     /* We are using node MCU schematic emulation */
     static uint16_t bklog[10],bklog_ptr=0;
+    // ESP_USART_Debug_Printf("->%d\r\n",state);
 
     if (bklog_ptr >= 10)
         bklog_ptr = 0;
@@ -76,11 +118,13 @@ void ESP_CTL_Modem_SetLineState (uint16_t state) {
     bklog[bklog_ptr++] = state;
 
     if ((B(3) == 2 && B(2) == 3 && B(1) == 2) ||
-        (B(4) == 2 && /*bklog[3] == 768 &&*/ B(2) == 1 && B(1) == 0))
+        (B(4) == 2 && /*bklog[3] == 768 &&*/ B(2) == 1 && B(1) == 0) ||
+        (B(4) == 0 &&  B(3) == 2 && B(2) == 1 && B(1) == 0)
+        ) {
         espAutoResetDetected = 1;
+        // ESP_USART_Debug_Printf("reset detected\r\n",state);
+    }
 }
-
-
 
 void ESP_CTL_CheckPowerKB () {
     int pwr_pressed = GPIO_ReadInputDataBit(GPIOA,GPIO_Pin_0);
@@ -100,12 +144,12 @@ void ESP_CTL_CheckPowerKB () {
 
     pwr_pressed_systick_ms = UINT32_MAX;
 
-    if (esp8266_reset_state == ESP8266_ResetStop) {
-        ESP_CTL_DoResetESP (ESP8266_ResetRun);
-    } else {
+    if (esp8266_reset_state != ESP8266_ResetStop) {
         ESP_CTL_DoResetESP (ESP8266_ResetStop);
         DelayMs (5);
         ESP_Wiring_OffAll();
+        ESP_CTL_EnterStopMode();
+        ESP_CTL_DoResetESP (ESP8266_ResetRun);
     }
 }
 
@@ -113,6 +157,6 @@ void ESP_CTL_Run () {
     if (espAutoResetDetected) {
          espAutoResetDetected =0;
         ESP_CTL_DoResetESP (ESP8266_ResetFlash);
-    }
+    } 
     ESP_CTL_CheckPowerKB ();
 }
