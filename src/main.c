@@ -21,6 +21,7 @@
 #define _USART_DEBUG_
 
 __ALIGN_BEGIN USB_OTG_CORE_HANDLE    USB_OTG_dev __ALIGN_END;
+int usb_init_done;
 
 void Set_System(void)
 {
@@ -30,15 +31,33 @@ void Set_System(void)
 	GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable,ENABLE);
 }
 
+typedef void (*bootjmpfn)(void);
+void Enter_DFU () {
+    bootjmpfn bootjump = (bootjmpfn) (*((uint32_t*)0x1fffb004)) ;
+    RCC_DeInit ();
+    SysTick->CTRL = 0;
+    SysTick->LOAD = 0;
+    SysTick->VAL = 0;
+    __set_MSP (0x20001000);
+    bootjump ();
+}
+
 int main(void)
 {
+    // DFU stuff
+    RCC_AHBPeriphResetCmd (RCC_AHBPeriph_OTG_FS,ENABLE);
+    RCC_AHBPeriphResetCmd (RCC_AHBPeriph_OTG_FS,DISABLE);
+    usb_init_done = 1;
+
+    if (espDfuModeMagic == ESP_DFU_MODE_MAGIC) {
+        espDfuModeMagic = 0;
+        Enter_DFU ();
+    }
     Set_System();
     // Configure systick for 1 ms tick
     SysTick_Config(CPUFREQ_KHZ);
     ESP_CTL_DoResetESP (ESP8266_ResetStop);
     DelayMs (5);
-
-
 
     BME280_Init ();
     // Enable touch input for check boot mode

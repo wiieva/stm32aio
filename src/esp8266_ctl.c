@@ -125,6 +125,20 @@ void ESP_CTL_Modem_SetLineState (uint16_t state) {
         // ESP_USART_Debug_Printf("reset detected\r\n",state);
     }
 }
+void ESP_CTL_Modem_TxBuf (uint8_t *Buf,uint32_t Len) {
+
+    static uint8_t bklog[10],bklog_ptr=0;
+    while (Len--) {
+        if (bklog_ptr >= 10)
+            bklog_ptr = 0;
+
+        bklog[bklog_ptr++] = *Buf++;
+        if (B(5) == '!' && B(4) == 'D' && B(3) == 'f' && B(2) == 'U' && B(1) == '!') {
+             espDfuModeMagic = ESP_DFU_MODE_MAGIC;
+             NVIC_SystemReset(); 
+        }
+    }
+}
 
 void ESP_CTL_CheckPowerKB () {
     int pwr_pressed = GPIO_ReadInputDataBit(GPIOA,GPIO_Pin_0);

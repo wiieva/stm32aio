@@ -173,7 +173,7 @@ static uint16_t VCP_DataTx (void)
 static uint16_t VCP_DataRx (uint8_t* Buf, uint32_t Len)
 {
   uint32_t i;
-  
+  ESP_CTL_Modem_TxBuf (Buf,Len);
   for (i = 0; i < Len; i++)
   {
     USART_SendData(ESP_USART, *(Buf + i) );

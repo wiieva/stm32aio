@@ -10,6 +10,7 @@ set (CMAKE_OBJCOPY arm-none-eabi-objcopy)
 set (CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set (CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set (CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set (DFU_UPLOAD_DEV /dev/tty.usbmodem*)
 enable_language (ASM)
 
 set (PRJ stm32aio)
@@ -79,7 +80,8 @@ set (CMAKE_ASM_FLAGS "-mthumb -mcpu=cortex-m3")
 add_executable (${PRJ} ${SRCS})
 target_include_directories (${PRJ} PRIVATE ${INCLUDES})
 add_custom_command (TARGET ${PRJ} POST_BUILD COMMAND ${CMAKE_OBJCOPY} ARGS "--output-format=binary" "${PRJ}" "${PRJ}.bin" )
+add_custom_command (TARGET ${PRJ} POST_BUILD COMMAND dfu-suffix ARGS "--vid=0483" "--pid=df11" "--add=${PRJ}.bin" )
 
 add_custom_target (upload COMMAND st-flash write ${PRJ}.bin 0x8000000 )
-add_custom_target (upload-dfu COMMAND dfu-util -a 0 -D stm32aio.bin -s 0x8000000 DEPENDS ${PRJ})
+add_custom_target (upload-dfu COMMAND dfu-util -w 15 -a 0 -D ${PRJ}.bin -s 0x8000000 -r -W ${DFU_UPLOAD_DEV} DEPENDS ${PRJ})
 
