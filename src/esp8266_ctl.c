@@ -8,7 +8,7 @@
 #include "tools.h"
 #include "usart.h"
 
-volatile int espAutoResetDetected = 0;
+volatile int espAutoResetDetected = 0, espDfuModeDetected = 0;
 static unsigned long pwr_pressed_systick_ms = 0;
 static int esp8266_reset_state = ESP8266_ResetStop;
 
@@ -134,8 +134,7 @@ void ESP_CTL_Modem_TxBuf (uint8_t *Buf,uint32_t Len) {
 
         bklog[bklog_ptr++] = *Buf++;
         if (B(5) == '!' && B(4) == 'D' && B(3) == 'f' && B(2) == 'U' && B(1) == '!') {
-             espDfuModeMagic = ESP_DFU_MODE_MAGIC;
-             NVIC_SystemReset(); 
+             espDfuModeDetected = 1;
         }
     }
 }
@@ -169,8 +168,16 @@ void ESP_CTL_CheckPowerKB () {
 
 void ESP_CTL_Run () {
     if (espAutoResetDetected) {
-         espAutoResetDetected =0;
+        espAutoResetDetected = 0;
         ESP_CTL_DoResetESP (ESP8266_ResetFlash);
     } 
+    if (espDfuModeDetected) {
+        espDfuModeDetected = 0;
+        VCP_Send_Buf ("DFU OK\n",7);
+        DelayMs (500);
+        espDfuModeMagic = ESP_DFU_MODE_MAGIC;
+        NVIC_SystemReset(); 
+    }
+
     ESP_CTL_CheckPowerKB ();
 }
