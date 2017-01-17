@@ -51,6 +51,8 @@ typedef struct
 #define DEFAULT_CONFIG                  0
 #define OTHER_CONFIG                    1
 
+uint16_t VCP_Send_Buf (uint8_t* Buf, uint32_t Len);
+int VCP_Debug_Printf (char *fmt, ...);
 
 #endif /* __USBD_CDC_VCP_H */
 

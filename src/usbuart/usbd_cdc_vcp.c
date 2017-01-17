@@ -1,6 +1,7 @@
 #include "usbd_cdc_vcp.h"
 #include "espeva_stmboard.h"
 #include "esp8266_ctl.h"
+#include <stdarg.h>
 
 
 LINE_CODING linecoding =
@@ -148,26 +149,38 @@ static uint16_t VCP_Ctrl (uint32_t Cmd, uint8_t* Buf, uint32_t Len)
   return USBD_OK;
 }
 
+
+void VCP_Send_Char (uint8_t c) 
+{
+    APP_Rx_Buffer[APP_Rx_ptr_in] = c;
+    APP_Rx_ptr_in = (APP_Rx_ptr_in + 1) % APP_RX_DATA_SIZE;
+}
+
+
+uint16_t VCP_Send_Buf (uint8_t* Buf, uint32_t Len)
+{
+    uint32_t i;
+    for (i = 0; i < Len; i++)
+        VCP_Send_Char (Buf[i]);
+    return 0;
+}
+
+int VCP_Debug_Printf (char *fmt, ...)
+{
+    char tmpbuf[256];
+    int ret;
+    va_list va;
+    va_start(va, fmt);
+    ret = mini_vsnprintf(tmpbuf, sizeof(tmpbuf), fmt, va);
+    va_end(va);
+    VCP_Send_Buf (tmpbuf,ret);
+    return ret;
+}
+
 static uint16_t VCP_DataTx (void)
 {
-  if (linecoding.datatype == 7)
-  {
-    APP_Rx_Buffer[APP_Rx_ptr_in] = USART_ReceiveData(ESP_USART) & 0x7F;
-  }
-  else if (linecoding.datatype == 8)
-  {
-    APP_Rx_Buffer[APP_Rx_ptr_in] = USART_ReceiveData(ESP_USART);
-  }
-  
-  APP_Rx_ptr_in++;
-  
-  /* To avoid buffer overflow */
-  if(APP_Rx_ptr_in == APP_RX_DATA_SIZE)
-  {
-    APP_Rx_ptr_in = 0;
-  }  
-  
-  return USBD_OK;
+    VCP_Send_Char (USART_ReceiveData(ESP_USART) & (linecoding.datatype == 7?0x7F:0xFF));
+    return USBD_OK;
 }
 
 static uint16_t VCP_DataRx (uint8_t* Buf, uint32_t Len)
