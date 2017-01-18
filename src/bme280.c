@@ -556,7 +556,7 @@ void ESP_BME280_Run () {
     }
     bme_data.temperature = BME280_CalcT(ut);
     bme_data.pressure = BME280_Pa_to_mmHg(BME280_CalcP(up));
-    bme_data.hummidity = BME280_CalcH(uh);
+    bme_data.humidity = BME280_CalcH(uh);
     bme_data.valid = 1;
     bme_data.ready = 1;
 }

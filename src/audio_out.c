@@ -4,7 +4,7 @@
 #include <string.h>
 #include <malloc.h>
 #include <mp3dec.h>
-#include "usart.h"
+//#include "debug.h"
 
 #define mp3_frame_max_samples   1152
 #define dac_dma_buf_size        (mp3_frame_max_samples*sizeof(int16_t)*2)
@@ -25,9 +25,11 @@ static HMP3Decoder      hMP3Decoder = {0};
 static circular_buffer  mp3_buf = {0};
 static uint8_t         *mp3_frame_buf = 0;
 static size_t           mp3_frame_len  = 0;
+static size_t           mp3_tag_left = 0;
 
-circular_buffer *ESP_Speaker_Buffer ()
-{
+int                     audio_out_volume = 100;
+
+circular_buffer *ESP_Speaker_Buffer () {
     return mp3mode?&mp3_buf:&dac_dma_buf;
 }
 
@@ -47,8 +49,7 @@ void InitTMR4() {
     TIM_Cmd(TIM4, ENABLE);
 }
 
-void ESP_ADC_DAC_SetSampleRate (int sampleRate)
-{
+void ESP_ADC_DAC_SetSampleRate (int sampleRate) {
     TIM_Cmd(TIM4, DISABLE);
 
     tim.TIM_Period = CPUFREQ_HZ / sampleRate - 1;
@@ -56,8 +57,7 @@ void ESP_ADC_DAC_SetSampleRate (int sampleRate)
     TIM_Cmd(TIM4, ENABLE);
 }
 
-void ESP_Speaker_DAC_Init ()
-{
+void ESP_Speaker_DAC_Init () {
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_DAC, ENABLE);
     RCC_AHBPeriphClockCmd (RCC_AHBPeriph_DMA2,ENABLE);
 
@@ -89,35 +89,27 @@ void ESP_Speaker_DAC_Init ()
     DMA_Init (DMA2_Channel3, &dma);
 }
 
-void DMA2_Channel3_IRQHandler(void)
-{
+void DMA2_Channel3_IRQHandler(void) {
     int was = 0;
-    uint8_t *ptr;
 
     if(DMA_GetITStatus(DMA2_IT_HT3)) {
         DMA_ClearITPendingBit(DMA2_IT_HT3);
-        was++;
-        // Sync tail with DMA
-        dac_dma_buf.tail = 0;
+        was=1;
     }
 
     if(DMA_GetITStatus(DMA2_IT_TC3)) {
         DMA_ClearITPendingBit(DMA2_IT_TC3);
-        was++;
+        was=2;
     }
 
-//    __disable_irq();
-    if (!was)
-        return;
-    if (cbuf_read_ptr (&dac_dma_buf, &ptr,dac_dma_buf.buf_size/2) < dac_dma_buf.buf_size/2) {
+    dac_dma_buf.tail = (dac_dma_buf.buf_size - DMA2_Channel3->CNDTR*2) % dac_dma_buf.buf_size;
+    dac_dma_buf.full = 0;
+
+    if (cbuf_count(&dac_dma_buf) < 80 ) {
         // underrun
         DMA_Cmd(DMA2_Channel3, DISABLE);
         cbuf_clear (&dac_dma_buf);
-    } else
-    {
-        cbuf_read_commit (&dac_dma_buf);
     }
-//    __enable_irq();
 }
 
 void ESP_Speaker_DAC_Interrupts_Init(void)
@@ -131,17 +123,15 @@ void ESP_Speaker_DAC_Interrupts_Init(void)
     NVIC_Init(&nvic);
 }
 
-void ESP_Speaker_Start (int sampleRate, int _mp3mode)
-{
+void ESP_Speaker_Start (int sampleRate, int _mp3mode) {
     audio_out_do_start = 1;
     do_sample_rate = sampleRate;
     do_mp3mode = _mp3mode;
 }
 
-static void ESP_Speaker_Do_Start ()
-{
+static void ESP_Speaker_Do_Start () {
      if (audio_out_started)
-        ESP_Speaker_Stop();
+        return;
 
     cbuf_init (&dac_dma_buf,dac_dma_buf_size);
     memset (dac_dma_buf.buf,0,dac_dma_buf_size);
@@ -161,6 +151,7 @@ static void ESP_Speaker_Do_Start ()
         cbuf_init (&mp3_buf,mp3_buf_size);
         mp3_frame_buf = (uint8_t*)malloc (mp3_frame_max_size);
         mp3_frame_len = 0;
+        mp3_tag_left = 0;
         out_sample_rate = 0;
     }
 
@@ -168,13 +159,11 @@ static void ESP_Speaker_Do_Start ()
 }
 
 
-void ESP_Speaker_Stop ()
-{
+void ESP_Speaker_Stop () {
     audio_out_do_start = 0;
 }
 
-static void ESP_Speaker_Do_Stop ()
-{
+static void ESP_Speaker_Do_Stop () {
     if (!audio_out_started)
         return;
 
@@ -192,24 +181,35 @@ static void ESP_Speaker_Do_Stop ()
         hMP3Decoder = 0;
         mp3_frame_buf = 0;
     }
-
-    if (mp3_buf.buf)
-        for (;;) {}
-
-
     audio_out_started = 0;
-
 }
 
-//#define DEBUG ESP_USART_Debug_Printf
-
-static int ESP_Speaker_MP3_decode ()
-{
+static int ESP_Speaker_MP3_decode () {
     uint8_t *mp3_frame_ptr = mp3_frame_buf;
     int mp3_frame_left = mp3_frame_len;
     int err;
 
     for (;;) {
+        if (mp3_tag_left) {
+            if (mp3_frame_left <= mp3_tag_left) {
+                mp3_tag_left -= mp3_frame_left;
+                mp3_frame_len = 0;
+                return 0;
+            } else {
+                mp3_frame_left -= mp3_tag_left;
+                mp3_frame_ptr += mp3_tag_left;
+                mp3_tag_left = 0;
+            }
+        }
+
+        // Simple ID3 parser. Just take size for skip them
+        if (mp3_frame_left >= 10 && !memcmp (mp3_frame_ptr,"ID3",3)) {
+            mp3_tag_left = mp3_frame_ptr[9] + (mp3_frame_ptr[8]<<7) + (mp3_frame_ptr[7]<<14) + (mp3_frame_ptr[6]<<21);
+            continue;
+        } else if (mp3_frame_left >= 3 && !memcmp (mp3_frame_ptr,"TAG",3)) {
+            mp3_tag_left = 128;
+            continue;
+        }
 
         int offset = MP3FindSyncWord(mp3_frame_ptr, mp3_frame_left);
         if (offset < 0) {
@@ -228,7 +228,7 @@ static int ESP_Speaker_MP3_decode ()
         // Get next frame info. clean buffer if error
         err = MP3GetNextFrameInfo(hMP3Decoder,&mp3FrameInfo,mp3_frame_ptr);
         if (err < 0) {
-//            DEBUG ("MP3: GetNextFrameInfo err=%d\r\n",err);
+//            DEBUG_PRINT ("MP3: GetNextFrameInfo err=%d %c%c%c\r\n",err,mp3_frame_ptr[0],mp3_frame_ptr[1],mp3_frame_ptr[2]);
             mp3_frame_left -= 2;
             mp3_frame_ptr += 2;
             continue;
@@ -247,7 +247,7 @@ static int ESP_Speaker_MP3_decode ()
         if (err == ERR_MP3_INDATA_UNDERFLOW || err == ERR_MP3_MAINDATA_UNDERFLOW)
             break;
         else if (err < 0) {
-//            DEBUG ("MP3: Decode frame err=%d\r\n",err);
+//            DEBUG_PRINT ("MP3: Decode frame err=%d\r\n",err);
             mp3_frame_left -= 2;
             mp3_frame_ptr += 2;
             continue;
@@ -269,8 +269,11 @@ static int ESP_Speaker_MP3_decode ()
         while (samples && (room = cbuf_write_ptr (&dac_dma_buf,&ptr,samples*sizeof(int16_t))/sizeof(int16_t)) != 0) {
 
             int16_t *iptr = (int16_t*)ptr;
-            for (;i < room; ++i)
-                *iptr++  = mp3_samples_buf[i*mp3FrameInfo.nChans] + 0x8000;
+            for (;i < room; ++i) {
+//                *iptr++ = mp3_samples_buf[i*mp3FrameInfo.nChans] + 0x8000;
+                int16_t smpl = mp3_samples_buf[i*mp3FrameInfo.nChans] * audio_out_volume/100;
+                *iptr++  = smpl + 0x8000;
+            }
             samples -= room;
             cbuf_write_commit (&dac_dma_buf);
         }
@@ -290,15 +293,19 @@ void ESP_Speaker_Decode_Run ()
         ESP_Speaker_Do_Stop();
     audio_out_do_start = -1;
 
-    if (!mp3mode || !audio_out_started)
+    if (!audio_out_started)
         return;
 
-    int sz = cbuf_read (&mp3_buf,mp3_frame_buf+mp3_frame_len,mp3_frame_max_size-mp3_frame_len);
-    mp3_frame_len += sz;
-    ESP_Speaker_MP3_decode ();
+    if (mp3mode) {
+        int sz = cbuf_read (&mp3_buf,mp3_frame_buf+mp3_frame_len,mp3_frame_max_size-mp3_frame_len);
+        mp3_frame_len += sz;
+        ESP_Speaker_MP3_decode ();
+    }
 
-    if (dac_dma_buf.full)
-       DMA_Cmd(DMA2_Channel3,ENABLE);
+    if (cbuf_count(&dac_dma_buf) >= dac_dma_buf.buf_size/2) {
+        // resume
+        DMA_Cmd(DMA2_Channel3,ENABLE);
+    } 
 }
 
 void ESP_Speaker_Init ()

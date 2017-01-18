@@ -35,6 +35,8 @@ static int do_sample_rate = 0;
 static int do_speex_mode = 0;
 
 int vad_state = 0;
+int audio_in_volume = 64;
+
 static VadInst *vad;
 
 circular_buffer *ESP_Mic_Buffer () {
@@ -234,7 +236,7 @@ void DMA1_Channel4_IRQHandler(void) {
         for (i = 0; i < pdm_in_size/sizeof(uint16_t); i++)
             p[i] = HTONS (p[i]);
 
-        PDM_Filter_64_LSB(pdm_dma_buf.buf+cur_buf,(uint16_t*)outbuf,64,&pf);
+        PDM_Filter_64_LSB(pdm_dma_buf.buf+cur_buf,(uint16_t*)outbuf,audio_in_volume,&pf);
         if (sample_rate_div == 2)
         {
             for (i = 0; i < pdm_out_samples/sample_rate_div; ++i)

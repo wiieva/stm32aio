@@ -3,16 +3,18 @@
 // Commands definition
 enum AIOCommand {
     AIO_CMD_NOP               =    0x0,
-    AIO_CMD_RD_STREAM,
-    AIO_CMD_WR_STREAM,
     AIO_CMD_ANALOG_READ,
     AIO_CMD_DIGITAL_READ,
     AIO_CMD_ANALOG_WRITE,
     AIO_CMD_DIGITAL_WRITE,
     AIO_CMD_PIN_MODE,
     AIO_CMD_SET_PWM_PARMS,
+    AIO_CMD_RD_STREAM,
+    AIO_CMD_WR_STREAM,
     AIO_CMD_AUDIO_IN_MODE,
     AIO_CMD_AUDIO_OUT_MODE,
+    AIO_CMD_AUDIO_IN_VOLUME,
+    AIO_CMD_AUDIO_OUT_VOLUME,
     AIO_CMD_GET_VAD_STATE,
     AIO_CMD_SEND_IR_CMD,
     AIO_CMD_SEND_UART,
@@ -123,7 +125,7 @@ typedef struct AIO_BME_Data {
     uint8_t valid;
     int16_t temperature;
     uint32_t pressure;
-    uint32_t hummidity;
+    uint32_t humidity;
 } __attribute__  ((packed)) AIO_BME_Data;
 
 typedef struct {

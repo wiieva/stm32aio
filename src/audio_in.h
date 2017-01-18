@@ -8,3 +8,4 @@ void ESP_Mic_Stop ();
 void ESP_Mic_Encode_Run ();
 circular_buffer *ESP_Mic_Buffer ();
 extern int vad_state;
+extern int audio_in_volume;

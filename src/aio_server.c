@@ -65,8 +65,6 @@ void ESP_SPI_Cmd_WrStream_Buf_Handler () {
     circular_buffer *abuf = ESP_Speaker_Buffer();
     // Buffer received. Commit data in circular buffer
     cbuf_write_commit(abuf);
-    if (abuf->full)
-        DMA_Cmd(DMA2_Channel3,ENABLE);
 }
 
 void ESP_SPI_Cmd_WrStream(uint16_t rx_d) {
@@ -200,6 +198,12 @@ void SPI1_IRQHandler(void) {
         break;
     case AIO_CMD_GET_VAD_STATE: 
         ESP_SPI_Send (vad_state);
+        break;
+    case AIO_CMD_AUDIO_IN_VOLUME: 
+        audio_in_volume = ARG1;
+        break;
+    case AIO_CMD_AUDIO_OUT_VOLUME: 
+        audio_out_volume = ARG1;
         break;
     // Sensor's commmands (touch,bme, IR)
     // **********************************
