@@ -96,7 +96,8 @@ void ESP_CTL_DoResetESP (int mode)
     // Release ESP boot configuration pins
     gpio.GPIO_Pin = ESP_GPIO0_PIN;
     gpio.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-    GPIO_Init(ESP_GPIO0_PORT, &gpio);
+    GPIO_WriteBit(ESP_GPIO0_PORT,ESP_GPIO0_PIN,1); // GPIO0 
+//    GPIO_Init(ESP_GPIO0_PORT, &gpio);
 
     gpio.GPIO_Pin = ESP_GPIO2_PIN;
     GPIO_Init(ESP_GPIO2_PORT, &gpio);

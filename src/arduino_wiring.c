@@ -152,7 +152,8 @@ void ESP_Wiring_DigitalWrite (uint16_t pin,uint16_t val) {
     const ArduinoPinDef *_pin = pins + pin;
     if (pin >= numPins)
        return;
-
+    if (pinModes[pin] == AIO_PIN_ANALOG_OUT)
+        ESP_Wiring_Set_Pin_Mode (pin,_pin,AIO_PIN_DIGITAL_OUT);
     if (val)
         _pin->port->BSRR = _pin->pin;
     else
@@ -170,6 +171,8 @@ void ESP_Wiring_AnalogWrite (uint16_t pin,uint16_t val) {
     const ArduinoPinDef *_pin = pins + pin;
     if (pin >= numPins || !_pin->tim)
        return;
+    if (pinModes[pin] == AIO_PIN_DIGITAL_OUT)
+        ESP_Wiring_Set_Pin_Mode (pin,_pin,AIO_PIN_ANALOG_OUT);
 
     __IO uint16_t *ccr = &(_pin->tim->CCR1) + _pin->channel/2;
     *ccr = ((CPUFREQ_HZ/_pin->tim_prescaler) / pwmFreq[pin])*val/pwmLimit[pin];
