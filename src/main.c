@@ -14,11 +14,9 @@
 #include "audio_out.h"
 #include "esp8266_ctl.h"
 #include "diskio.h"
-#include "usart.h"
+#include "debug.h"
 #include "bme280.h"
 #include "i2c.h"
-
-#define _USART_DEBUG_
 
 __ALIGN_BEGIN USB_OTG_CORE_HANDLE    USB_OTG_dev __ALIGN_END;
 int usb_init_done;
@@ -74,11 +72,9 @@ int main(void)
     USBD_Init(&USB_OTG_dev, USB_OTG_FS_CORE_ID, &USR_cdc_desc, &USBD_CDC_cb, &USR_cb);
     USB_OTG_SetCurrentMode(&USB_OTG_dev, DEVICE_MODE);
 
-#ifdef _USART_DEBUG_
-    ESP_USART_Init(115200);
-    ESP_USART_Debug_Printf("---------------------------------\r\n");
-    ESP_USART_Debug_Printf("stm32aio started\r\n");
-#endif
+    DEBUG_PRINT_INIT();
+    DEBUG_PRINT("---------------------------------\n");
+    DEBUG_PRINT("stm32aio started\n");
 
     ESP_Mic_Init ();
     ESP_Speaker_Init ();
