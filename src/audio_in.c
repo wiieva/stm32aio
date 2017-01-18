@@ -34,17 +34,14 @@ static int audio_in_do_start = -1;
 static int do_sample_rate = 0;
 static int do_speex_mode = 0;
 
-
 int vad_state = 0;
 static VadInst *vad;
 
-circular_buffer *ESP_Mic_Buffer ()
-{
+circular_buffer *ESP_Mic_Buffer () {
     return speex_mode?&speex_buf:&pdm_samples_buf;
 }
 
-static void ESP_Mic_PDM_SPI_Init(/*uint32_t Freq*/)
-{
+static void ESP_Mic_PDM_SPI_Init(/*uint32_t Freq*/) {
     /* Enable the SPI clock */
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_SPI2,ENABLE);
 
@@ -70,11 +67,9 @@ static void ESP_Mic_PDM_SPI_Init(/*uint32_t Freq*/)
     gpio.GPIO_Pin = GPIO_Pin_15;
     gpio.GPIO_Mode    = GPIO_Mode_IN_FLOATING;
     GPIO_Init(GPIOB, &gpio);
-
 }
 
-void ESP_Mic_Interrupts_Init ()
-{
+void ESP_Mic_Interrupts_Init () {
     NVIC_InitTypeDef nvic;
 
     nvic.NVIC_IRQChannelCmd = ENABLE;
@@ -84,24 +79,19 @@ void ESP_Mic_Interrupts_Init ()
     NVIC_Init(&nvic);
 }
 
-
-void ESP_Mic_Speex_init ()
-{
+void ESP_Mic_Speex_init () {
     speex_bits_init(&bits);
     enc_state = speex_encoder_init(&speex_nb_mode);
     speex_encoder_ctl(enc_state, SPEEX_SET_QUALITY,&quality);
     speex_encoder_ctl(enc_state, SPEEX_SET_COMPLEXITY, &complexity);
 }
 
-void ESP_Mic_Speex_deinit ()
-{
+void ESP_Mic_Speex_deinit () {
     speex_bits_destroy (&bits);
-    speex_encoder_destroy(&enc_state);
+    speex_encoder_destroy(enc_state);
 }
 
-
-int ESP_Mic_Speex_encode (int16_t *buf,uint16_t samples)
-{
+int ESP_Mic_Speex_encode (int16_t *buf,uint16_t samples) {
     uint8_t *ptr = 0;
     if (cbuf_write_ptr(&speex_buf,&ptr,speex_encoded_frame_size) == speex_encoded_frame_size) {
 
@@ -118,8 +108,7 @@ int ESP_Mic_Speex_encode (int16_t *buf,uint16_t samples)
     }
     return 0;
 }
-void ESP_Mic_Start (int sampleRate,int _speex_mode)
-{
+void ESP_Mic_Start (int sampleRate,int _speex_mode) {
     do_sample_rate = sampleRate;
     do_speex_mode  = _speex_mode;
     audio_in_do_start = 1;
@@ -127,10 +116,8 @@ void ESP_Mic_Start (int sampleRate,int _speex_mode)
 
 static void ESP_Mic_Do_Stop ();
 
-static void ESP_Mic_Do_Start ()
-{
+static void ESP_Mic_Do_Start () {
     if (audio_in_started) {
-       //ESP_Mic_Do_Stop ();
        return ;
     }
 
@@ -179,16 +166,13 @@ static void ESP_Mic_Do_Start ()
     DMA_Cmd(DMA1_Channel4,ENABLE);
     SPI_I2S_DMACmd(SPI2,SPI_I2S_DMAReq_Rx,ENABLE);
     audio_in_started = 1;
-
 }
 
-void ESP_Mic_Stop ()
-{
+void ESP_Mic_Stop () {
     audio_in_do_start = 0;
 }
 
-static void ESP_Mic_Do_Stop ()
-{
+static void ESP_Mic_Do_Stop () {
     if (!audio_in_started)
        return;
 
@@ -208,11 +192,9 @@ static void ESP_Mic_Do_Stop ()
     speex_mode = 0;
     WebRtcVad_Free (vad);
     audio_in_started = 0;
-
 }
 
-void ESP_Mic_Encode_Run ()
-{
+void ESP_Mic_Encode_Run () {
     if (audio_in_do_start == 1)
         ESP_Mic_Do_Start();
     else if (audio_in_do_start == 0)
@@ -228,15 +210,13 @@ void ESP_Mic_Encode_Run ()
     }
 }
 
-void ESP_Mic_Init ()
-{
+void ESP_Mic_Init () {
     ESP_Mic_PDM_SPI_Init ();
     ESP_Mic_Interrupts_Init ();
 }
 
 
-void DMA1_Channel4_IRQHandler(void)
-{
+void DMA1_Channel4_IRQHandler(void) {
     int16_t outbuf[pdm_out_samples];
     int i,cur_buf = -1;
     if(DMA_GetITStatus(DMA1_IT_TC4)) {
